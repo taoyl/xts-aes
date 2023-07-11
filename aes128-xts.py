@@ -5,6 +5,7 @@ By Nero Tao
 
 import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from aes128 import aes128_decryption, aes128_encryption
 
 GF_128_FDBK = 0x87
 AES_BLK_BYTES = 16
@@ -35,14 +36,22 @@ def hex2bytes(h:str, byte_num=16):
     return bytes.fromhex(h[::-1].zfill(byte_num*2)[::-1])
 
 def aes128_ecb_enc(key:bytes, plaint_text:bytes):
-    cipher = Cipher(algorithms.AES(key), modes.ECB())
-    enc = cipher.encryptor()
-    return enc.update(plaint_text)
+    # option1: use cryptography lib
+    # cipher = Cipher(algorithms.AES(key), modes.ECB())
+    # enc = cipher.encryptor()
+    # return enc.update(plaint_text)
+
+    # option2: use custom development ase128
+    return aes128_encryption(plaint_text=plaint_text, key=key)
 
 def aes128_ecb_dec(key:bytes, cipher_text:bytes):
-    cipher = Cipher(algorithms.AES(key), modes.ECB())
-    dec = cipher.decryptor()
-    return dec.update(cipher_text)
+    # option1: use cryptography lib
+    # cipher = Cipher(algorithms.AES(key), modes.ECB())
+    # dec = cipher.decryptor()
+    # return dec.update(cipher_text)
+
+    # option2: use custom development ase128
+    return aes128_decryption(cipher_text=cipher_text, key=key)
 
 
 def aes128_xts(enc_mode:bool, key1:bytes, key2:bytes, data_unit_num:int, text_in:bytes):
@@ -60,7 +69,7 @@ def aes128_xts(enc_mode:bool, key1:bytes, key2:bytes, data_unit_num:int, text_in
         tweak_pt += b.to_bytes(1, 'little')
         data_unit_num = data_unit_num >> 8
 
-    print(f'{tweak_pt=}')
+    print(f'{tweak_pt.hex()=}')
     # tweak encryption
     tweak_ct = aes128_ecb_enc(key2, tweak_pt)
 
@@ -68,8 +77,9 @@ def aes128_xts(enc_mode:bool, key1:bytes, key2:bytes, data_unit_num:int, text_in
     for j in range(len(text_in) >> 4):
         # adjust the tweak
         tweak_ct = gf2_128(tweak_ct, j)
-        print(f'{j=}, {tweak_ct.hex()=}')
+        #print(f'{j=}, {tweak_ct.hex()=}')
 
+        # merge tweak into input text
         block_text = [text_in[j*AES_BLK_BYTES + i] ^ tweak_ct[i] for i in range(AES_BLK_BYTES)]
         block_text = bytes(block_text)
         
@@ -90,24 +100,29 @@ if __name__ == '__main__':
     tweak = os.urandom(16)
     plaint_text = os.urandom(16)
     
+    # Test vectors from XTS-AES spec
+    # Test vector1
     #key1 = hex2bytes('00000000000000000000000000000000')
     #key2 = hex2bytes('00000000000000000000000000000000')
     #tweak = int('0', 16)
     #plaint_text = bytes.fromhex('00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
     #golden_cipher_text = '917cf69ebd68b2ec9b9fe9a3eadda692cd43d2f59598ed858c02c2652fbf922e'
     
+    # Test vector2
     key1  = hex2bytes('11111111111111111111111111111111')
     key2  = hex2bytes('22222222222222222222222222222222')
     tweak = int('3333333333', 16)
     plaint_text = bytes.fromhex('4444444444444444444444444444444444444444444444444444444444444444')
     golden_cipher_text = 'c454185e6a16936e39334038acef838bfb186fff7480adc4289382ecd6d394f0'
     
+    # Test vector3
     key1 = hex2bytes('fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0')
     key2 = hex2bytes('22222222222222222222222222222222')
     tweak = int('3333333333', 16)
     plaint_text = bytes.fromhex('4444444444444444444444444444444444444444444444444444444444444444')
     golden_cipher_text = 'af85336b597afc1a900b2eb21ec949d292df4c047e0b21532186a5971a227a89'
     
+    # Test vector4
     key1 = hex2bytes('27182818284590452353602874713526')
     key2 = hex2bytes('31415926535897932384626433832795')
     tweak = int('fd', 16)
@@ -144,15 +159,16 @@ if __name__ == '__main__':
                           'a320a08142923c23c883423ff949827f29bbacdc1ccdb04938ce6098c95ba6b3'
                           '2528f4ef78eed778b2e122ddfd1cbdd11d1c0a6783e011fc536d63d053260637')
 
+    # Test vector5
     # key1 = hex2bytes('00000000000000000000000000000000')
     # key2 = hex2bytes('00000000000000000000000000000000')
     # tweak = int('0', 16)
     # plaint_text = bytes.fromhex('00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
     # golden_cipher_text = '917cf69ebd68b2ec9b9fe9a3eadda692cd43d2f59598ed858c02c2652fbf922e734867fd279b516a094b9713c18e772953525a657c3fce194e9a43b452102fb1'
     
-    print(f'plaint_text={plaint_text.hex()}, plaint_text_byte={plaint_text}')
+    print(f'plaint_text={plaint_text.hex()}')
     
-    # built-in XTS algorithm, only support j=0??
+    # built-in XTS algorithm, only support 128bit data unit (one block)
     # key = key1 + key2
     # cipher_xts = Cipher(algorithms.AES(key1+key2), modes.XTS(tweak))
     # enc_xts = cipher_xts.encryptor()
