@@ -1,5 +1,5 @@
 """
-AES128 implementation
+AES128 ECB mode implementation
 By Nero Tao
 """
 
@@ -280,7 +280,7 @@ def aes128_decryption(cipher_text:bytes, key:bytes):
     ctext_starr = byteseq2starrseq(cipher_text)
     key_starr = byteseq2starrseq(key)
 
-    #2. compute key schedule first because decrytion starts from the last round
+    #2. compute key schedule first because decrytion starts with the last round key (w[40:44])
     ksch_words = gen_key_schedule(key=key_starr)
 
     #3. the first AddRoundKey with the last four words (w[40:44])
@@ -289,7 +289,7 @@ def aes128_decryption(cipher_text:bytes, key:bytes):
     ctext_starr = add_round_key(text_in=ctext_starr, key=key_starr)
     # print(f'istart: {starrseq2byteseq(ctext_starr).hex()=}')
 
-    #3. iterate 10 rounds
+    #4. iterate 10 rounds
     for r in range(AES_ROUNDS-1,-1,-1):
         # print(f'AES decryption round{r} ...')
         ctext_starr = inv_shift_rows(ctext_starr)
