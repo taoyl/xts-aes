@@ -12,15 +12,19 @@ from sm4 import sm4ecb_encryption, sm4ecb_decryption
 GF_128_FDBK = 0x87
 AES_BLK_BYTES = 16
 
-def gf2_128(L:bytes, j:int):
+
+def gf2_128_mul_primitive_element(L:bytes, j:int):
+    """Compute L•α^j in finite field GF(2^128), whre α is the primitive poly"""
     assert(len(L) == AES_BLK_BYTES)
     if j == 0:
+        # j == 0, α^j = 1, return L
         return L
     else:
-        # multiple T by a^j: 128 bit block left shifts by 1
+        # j != 0: 128 bit block left shifts by 1 ans xored with GF_128_FDBK
         cin = 0
         T = []
         for i in range(AES_BLK_BYTES):
+            # byte-wise left shifts by 1 bit, note carry bit (MSB of lower byte becomes LSB of the upper byte)
             cout = (L[i] >> 7) & 0x1
             T.append((L[i] * 2 + cin) & 0xff)
             #print(f'{i=}, {cin=}, {cout=}, {hex(L[i])=}, {hex(T[i])=}')
@@ -30,6 +34,36 @@ def gf2_128(L:bytes, j:int):
             T[0] ^= GF_128_FDBK
         #print(f'{L.hex()=}, {bytes(T).hex()=}')
         return bytes(T)
+
+
+def gf2_128_mul(X:bytes, Y:bytes):
+    """
+    Compute Z=X•Y in finite field GF(2^128), where X, Y are two arbitrary field elements.
+    This function is used to compute X•H in GCM mode.
+    """
+    assert(len(X) == len(Y) == AES_BLK_BYTES)
+    
+    Z = bytes(AES_BLK_BYTES)
+    V = X
+    for i in range(AES_BLK_BYTES):
+        for b in range(8):
+            y_lsb = X[i] >> b
+            if y_lsb:
+                Z = byte_wise_xor(Z, V)
+            V = gf2_128_mul_primitive_element(V, 1)
+    return Z
+
+
+def byte_wise_xor(X:bytes, Y:bytes):
+    assert(len(X) == len(Y))
+    return bytes([X[i] ^ Y[i] for i in range(len(X))])
+
+
+def int2bytes(x, byte_num=16):
+    # limit x into byte_num
+    # x = eval('x & 0x' + 'f' * byte_num * 8 / 4)
+    return hex2bytes(hex(x)[2:])
+
 
 def hex2bytes(h:str, byte_num=16):
     # h[0] is the least significant byte (lsb) and it is printed out at leftmost of a string
@@ -97,7 +131,7 @@ def xts_encdec(enc_mode:bool, key1:bytes, key2:bytes, data_unit_num:int, text_in
     text_out = b''
     for j in range(len(text_in) >> 4):
         # adjust the tweak
-        tweak_ct = gf2_128(tweak_ct, j)
+        tweak_ct = gf2_128_mul_primitive_element(tweak_ct, j)
         #print(f'{j=}, {tweak_ct.hex()=}')
 
         # merge tweak into input text
@@ -249,5 +283,4 @@ if __name__ == '__main__':
 
     #test_aes128_xts()
     test_sm4_xts()
-
 

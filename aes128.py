@@ -114,14 +114,14 @@ def xtime(x:int):
     return y ^ AES_MX_POLY if msb else y
 
 
-def galois_mul(left:int, right:int):
-    """Calculate Galois multiplication of left * right"""
-    # calculate xtime value list
+def gf2_8_mul(left:int, right:int):
+    """Calculate Galois multiplication of left * right, see spec for details"""
+    # calculate xtime value list for poly x (0b00000010)
     xtime_list =[left,]
     _ = [xtime_list.append(xtime(xtime_list[i-1])) for i in range(1, 8)]
     # print(xtime_list)
 
-    # calculate galois multiplication
+    # calculate galois multiplication in GF(2^8)
     r_bits = byte2bin(right)
     mul_res = 0
     for i in range(8):
@@ -181,10 +181,10 @@ def _mix_col(mix_arr, x:bytes):
     y = [0] * 16
     for i in range(4):
         for j in range(4):
-            y[4*i+j] = galois_mul(mix_arr[4*i+0], x[j+0]) ^ \
-                       galois_mul(mix_arr[4*i+1], x[j+4]) ^ \
-                       galois_mul(mix_arr[4*i+2], x[j+8]) ^ \
-                       galois_mul(mix_arr[4*i+3], x[j+12])
+            y[4*i+j] = gf2_8_mul(mix_arr[4*i+0], x[j+0]) ^ \
+                       gf2_8_mul(mix_arr[4*i+1], x[j+4]) ^ \
+                       gf2_8_mul(mix_arr[4*i+2], x[j+8]) ^ \
+                       gf2_8_mul(mix_arr[4*i+3], x[j+12])
     return bytes(y)
 
 def _sbox(box, x:bytes):
